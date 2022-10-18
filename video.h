@@ -44,6 +44,7 @@ void  video_set_shadow_mask(const char *name);
 void  video_loadPreset(char *name);
 
 void  video_mode_adjust();
+int  video_poll_bg_switch();
 
 int   hasAPI1_5();
 

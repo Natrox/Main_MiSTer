@@ -2777,6 +2777,7 @@ static char *get_file_fromdir(const char* dir, int num, int *count)
 
 	return name;
 }
+static Imlib_Image menubg = 0;
 
 static Imlib_Image load_bg()
 {
@@ -2821,6 +2822,24 @@ static Imlib_Image load_bg()
 	}
 
 	return NULL;
+}
+
+// This is an extraction out of load_bg to load something
+// other than "menu[.png][.jpg]" or alt wallpapers.
+// For now we copy the relevant parts from above
+static Imlib_Image bg1 = 0, bg2 = 0; // we also reset these
+void load_bg_specific(const char* fname)
+{
+  if (fname)
+	{
+		Imlib_Image img = imlib_load_image(getFullPath(fname));
+		if (img)
+		{
+		  menubg = img;
+			bg1 = 0;
+			bg2 = 0;
+		}
+	}
 }
 
 static int bg_has_picture = 0;
@@ -2872,8 +2891,6 @@ void video_menu_bg(int n, int idle)
 
 		menu_bgn = (menu_bgn == 1) ? 2 : 1;
 
-		static Imlib_Image menubg = 0;
-		static Imlib_Image bg1 = 0, bg2 = 0;
 		if (!bg1) bg1 = imlib_create_image_using_data(fb_width, fb_height, (uint32_t*)(fb_base + (FB_SIZE * 1)));
 		if (!bg1) printf("Warning: bg1 is 0\n");
 		if (!bg2) bg2 = imlib_create_image_using_data(fb_width, fb_height, (uint32_t*)(fb_base + (FB_SIZE * 2)));
@@ -3056,6 +3073,21 @@ int video_chvt(int num)
 	return cur_vt ? cur_vt : 1;
 }
 
+static char loadBgRelayFname[1024];
+static int loadBgRelaySignal = 0;
+int video_poll_bg_switch(void)
+{
+	if (loadBgRelaySignal)
+	{
+		load_bg_specific(loadBgRelayFname);
+		video_menu_bg(1,1); // refresh
+		loadBgRelaySignal = 0;
+		return 1;
+	}
+
+  return 0;
+}
+
 void video_cmd(char *cmd)
 {
 	if (video_fb_state())
@@ -3192,6 +3224,22 @@ void video_cmd(char *cmd)
 		{
 			printf("video_cmd: unknown command or format.\n");
 		}
+	}
+	
+	if (!strncmp(cmd, "load_bg", 7))
+	{
+		// Find the direct bg path pointer
+		// The 'cmd' param is max 1024,
+		const char* bg = cmd + 7;
+		while (*bg == ' ' && (bg - cmd) < 1024)
+			bg++;
+
+		// This command is being processed on the input thread.
+		// We cannot load the image from here without stalling
+		// the core, so we store for later. menu.cpp will call
+		// `video_poll_bg_switch` and that will do it for us
+		strcpy(loadBgRelayFname, bg);
+		loadBgRelaySignal = 1;
 	}
 }
 
