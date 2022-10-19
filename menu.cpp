@@ -1096,9 +1096,6 @@ void HandleUI(void)
 	//prevent OSD control while script is executing on framebuffer
 	if (!video_fb_state() || video_chvt(0) != 2)
 	{
-			if (is_menu() && video_poll_bg_switch())
-				video_menu_bg(1,1);
-
 		switch (c)
 		{
 		case KEY_F12:

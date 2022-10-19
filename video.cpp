@@ -2777,7 +2777,6 @@ static char *get_file_fromdir(const char* dir, int num, int *count)
 
 	return name;
 }
-static Imlib_Image menubg = 0;
 
 static Imlib_Image load_bg()
 {
@@ -2827,17 +2826,17 @@ static Imlib_Image load_bg()
 // This is an extraction out of load_bg to load something
 // other than "menu[.png][.jpg]" or alt wallpapers.
 // For now we copy the relevant parts from above
-static Imlib_Image bg1 = 0, bg2 = 0; // we also reset these
+static Imlib_Image menubg_swap = 0;
+static int menubg_swap_signal = 0;
 void load_bg_specific(const char* fname)
 {
   if (fname)
 	{
 		Imlib_Image img = imlib_load_image(getFullPath(fname));
-		if (img)
+		if (img && !menubg_swap_signal)
 		{
-		  menubg = img;
-			bg1 = 0;
-			bg2 = 0;
+		  menubg_swap = img;
+			menubg_swap_signal = 1;
 		}
 	}
 }
@@ -2890,6 +2889,17 @@ void video_menu_bg(int n, int idle)
 		}
 
 		menu_bgn = (menu_bgn == 1) ? 2 : 1;
+
+    static Imlib_Image menubg = 0;
+		static Imlib_Image bg1 = 0, bg2 = 0;
+
+		// swap if necessary
+		if (menubg_swap_signal)
+		{
+			menubg = menubg_swap;
+			bg1 = 0; bg2 = 0;
+			menubg_swap_signal = 0;
+		}
 
 		if (!bg1) bg1 = imlib_create_image_using_data(fb_width, fb_height, (uint32_t*)(fb_base + (FB_SIZE * 1)));
 		if (!bg1) printf("Warning: bg1 is 0\n");
@@ -3073,21 +3083,6 @@ int video_chvt(int num)
 	return cur_vt ? cur_vt : 1;
 }
 
-static char loadBgRelayFname[1024];
-static int loadBgRelaySignal = 0;
-int video_poll_bg_switch(void)
-{
-	if (loadBgRelaySignal)
-	{
-		load_bg_specific(loadBgRelayFname);
-		video_menu_bg(1,1); // refresh
-		loadBgRelaySignal = 0;
-		return 1;
-	}
-
-  return 0;
-}
-
 void video_cmd(char *cmd)
 {
 	if (video_fb_state())
@@ -3225,21 +3220,29 @@ void video_cmd(char *cmd)
 			printf("video_cmd: unknown command or format.\n");
 		}
 	}
-	
-	if (!strncmp(cmd, "load_bg", 7))
+
+	// Command to load a custom wallpaper at runtime
+	if (!strncmp(cmd, "load_bg ", 8) &&
+			is_menu())
 	{
 		// Find the direct bg path pointer
 		// The 'cmd' param is max 1024,
-		const char* bg = cmd + 7;
+		const char* bg = cmd + 8;
 		while (*bg == ' ' && (bg - cmd) < 1024)
 			bg++;
 
-		// This command is being processed on the input thread.
-		// We cannot load the image from here without stalling
-		// the core, so we store for later. menu.cpp will call
-		// `video_poll_bg_switch` and that will do it for us
-		strcpy(loadBgRelayFname, bg);
-		loadBgRelaySignal = 1;
+    // Copy the filename part as this will go invalid soon
+		static char fname[1024];
+		sprintf(fname, "%s", bg);
+
+		// We need to do the load async because we're currently
+		// on the input thread - if we don't use offload we will
+		// stall the core's input processing
+		offload_add_work([=]
+		{
+			load_bg_specific(fname);
+			video_menu_bg(user_io_status_get("[3:1]")); // force redraw
+		}, true);
 	}
 }
 
