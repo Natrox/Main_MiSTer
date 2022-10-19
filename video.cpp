@@ -2890,7 +2890,7 @@ void video_menu_bg(int n, int idle)
 
 		menu_bgn = (menu_bgn == 1) ? 2 : 1;
 
-    static Imlib_Image menubg = 0;
+		static Imlib_Image menubg = 0;
 		static Imlib_Image bg1 = 0, bg2 = 0;
 
 		// swap if necessary
@@ -3231,7 +3231,7 @@ void video_cmd(char *cmd)
 		while (*bg == ' ' && (bg - cmd) < 1024)
 			bg++;
 
-    // Copy the filename part as this will go invalid soon
+		// Copy the filename part as this will go invalid soon
 		static char fname[1024];
 		sprintf(fname, "%s", bg);
 
