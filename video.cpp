@@ -2835,7 +2835,7 @@ void load_bg_specific(const char* fname)
 		Imlib_Image img = imlib_load_image(getFullPath(fname));
 		if (img && !menubg_swap_signal)
 		{
-		  menubg_swap = img;
+			menubg_swap = img;
 			menubg_swap_signal = 1;
 		}
 	}
