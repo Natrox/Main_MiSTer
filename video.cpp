@@ -2905,8 +2905,6 @@ void video_menu_bg(int n, int idle)
 			// to respect screen dim
 			idle = idle_prev;
 			menubg_swap_signal = 0;
-
-			printf("swap %d\n", idle);
 		}
 
 		if (!bg1) bg1 = imlib_create_image_using_data(fb_width, fb_height, (uint32_t*)(fb_base + (FB_SIZE * 1)));
