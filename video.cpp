@@ -2832,7 +2832,7 @@ void load_bg_specific(const char* fname)
 {
   if (fname)
 	{
-		Imlib_Image img = imlib_load_image(getFullPath(fname));
+		Imlib_Image img = imlib_load_image_without_cache(getFullPath(fname));
 		if (img && !menubg_swap_signal)
 		{
 			menubg_swap = img;
@@ -2847,6 +2847,7 @@ void video_menu_bg(int n, int idle)
 {
 	bg_has_picture = 0;
 	menu_bg = n;
+
 	if (n)
 	{
 		//printf("**** BG DEBUG START ****\n");
@@ -2892,13 +2893,20 @@ void video_menu_bg(int n, int idle)
 
 		static Imlib_Image menubg = 0;
 		static Imlib_Image bg1 = 0, bg2 = 0;
+		static Imlib_Image curtain = 0;
+		static int idle_prev = 0;
 
 		// swap if necessary
 		if (menubg_swap_signal)
 		{
 			menubg = menubg_swap;
 			bg1 = 0; bg2 = 0;
+			// we need to use the previous "idle" value
+			// to respect screen dim
+			idle = idle_prev;
 			menubg_swap_signal = 0;
+
+			printf("swap %d\n", idle);
 		}
 
 		if (!bg1) bg1 = imlib_create_image_using_data(fb_width, fb_height, (uint32_t*)(fb_base + (FB_SIZE * 1)));
@@ -2909,7 +2917,6 @@ void video_menu_bg(int n, int idle)
 		Imlib_Image *bg = (menu_bgn == 1) ? &bg1 : &bg2;
 		//printf("*bg = %p\n", *bg);
 
-		static Imlib_Image curtain = 0;
 		if (!curtain)
 		{
 			curtain = imlib_create_image(fb_width, fb_height);
@@ -3051,6 +3058,8 @@ void video_menu_bg(int n, int idle)
 		{
 			printf("curtain = 0!\n");
 		}
+
+		idle_prev = idle;
 
 		//test the fb driver
 		//vs_wait();
