@@ -20,7 +20,7 @@ typedef struct {
 } mister_scaler;
 
 #define MISTER_SCALER_BASEADDR     0x20000000
-#define MISTER_SCALER_BUFFERSIZE   2048*3*1024
+#define MISTER_SCALER_BUFFERSIZE   4096*3*1024
 
 mister_scaler *mister_scaler_init();
 int mister_scaler_read(mister_scaler *,unsigned char *buffer);

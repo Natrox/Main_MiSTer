@@ -121,6 +121,8 @@ vmode_t vmodes[] =
 	{ { 1920,  48,  32,  80, 1440,  2,  4, 38 }, 185.203, 0, 0 }, //12 1920x1440@60
 	{ { 2048,  48,  32,  80, 1536,  2,  4, 38 }, 209.318, 0, 0 }, //13 2048x1536@60
 	{ { 1280,  24,  16,  40, 1440,  3,  5, 33 }, 120.75,  0, 1 }, //14 2560x1440@60 (pr)
+	{ { 3840,  48,  32,  80, 2160,  2,  5, 19 }, 218.500, 0, 0 }, //15 3840x1260@25 (hack)
+	{ { 3840,  48,  32,  80, 2160,  2,  5, 24 }, 262.500, 0, 0 }, //16 3840x1260@29.97 (hack)
 };
 #define VMODES_NUM (sizeof(vmodes) / sizeof(vmodes[0]))
 
@@ -1503,7 +1505,7 @@ static int get_edid_vmode(vmode_custom_t *v)
 
 	if (hact >= 1920) support_FHD = 1;
 
-	if (hact > 2048)
+	if (hact > 4096)
 	{
 		printf("EDID: Preferred resolution is too high (%dx%d).\n", hact, vact);
 		printf("EDID: Falling back to default video mode.\n");
@@ -1532,13 +1534,17 @@ static int get_edid_vmode(vmode_custom_t *v)
 			v->param.vic = vmodes[n].vic_mode;
 			v->Fpix = vmodes[n].Fpix;
 		}
+		else if (Fpix < 270.0f && frame_rate <= 30.0f && vact > 1536)
+		{
+			printf("WARN: This if EXTREMELY out-of-spec. You are on your own!\n");
+		}
 		else
 		{
 			int fail = 1;
 			if (frame_rate > 60.f)
 			{
 				Fpix = 60.f * (hact + hfp + hbp + hsync)*(vact + vfp + vbp + vsync) / 1000000.f;
-				if (Fpix <= 210.f)
+				if (Fpix <= 270.f)
 				{
 					printf("EDID: Reducing frame rate to 60Hz with new pixel clock %.3fMHz.\n", Fpix);
 					v->Fpix = Fpix;
@@ -2540,169 +2546,18 @@ static void video_fb_config()
 	fb_write_module_params();
 }
 
-static void draw_checkers()
+static void draw_warning()
 {
 	volatile uint32_t* buf = fb_base + (FB_SIZE*menu_bgn);
-
-	uint32_t col1 = 0x888888;
-	uint32_t col2 = 0x666666;
-	int sz = fb_width / 128;
-
-	for (int y = brd_y; y < fb_height - brd_y; y++)
-	{
-		int c1 = (y / sz) & 1;
-		int pos = y * fb_width;
-		for (int x = brd_x; x < fb_width - brd_x; x++)
-		{
-			int c2 = c1 ^ ((x / sz) & 1);
-			buf[pos + x] = c2 ? col2 : col1;
-		}
-	}
-}
-
-static void draw_hbars1()
-{
-	volatile uint32_t* buf = fb_base + (FB_SIZE*menu_bgn);
-	int height = fb_height - 2 * brd_y;
-
-	int old_base = 0;
-	int gray = 255;
-	int sz = height / 7;
-	int stp = 0;
-
-	for (int y = brd_y; y < fb_height - brd_y; y++)
-	{
-		int pos = y * fb_width;
-		int base_color = ((7 * (y-brd_y)) / height) + 1;
-		if (old_base != base_color)
-		{
-			stp = sz;
-			old_base = base_color;
-		}
-
-		gray = 255 * stp / sz;
-
-		for (int x = brd_x; x < fb_width - brd_x; x++)
-		{
-			uint32_t color = 0;
-			if (base_color & 4) color |= gray;
-			if (base_color & 2) color |= gray << 8;
-			if (base_color & 1) color |= gray << 16;
-			buf[pos + x] = color;
-		}
-
-		stp--;
-		if (stp < 0) stp = 0;
-	}
-}
-
-static void draw_hbars2()
-{
-	volatile uint32_t* buf = fb_base + (FB_SIZE*menu_bgn);
-	int height = fb_height - 2 * brd_y;
-	int width = fb_width - 2 * brd_x;
-
-	for (int y = brd_y; y < fb_height - brd_y; y++)
-	{
-		int pos = y * fb_width;
-		int base_color = ((14 * (y - brd_y)) / height);
-		int inv = base_color & 1;
-		base_color >>= 1;
-		base_color = (inv ? base_color : 6 - base_color) + 1;
-		for (int x = brd_x; x < fb_width - brd_x; x++)
-		{
-			int gray = (256 * (x - brd_x)) / width;
-			if (inv) gray = 255 - gray;
-			uint32_t color = 0;
-			if (base_color & 4) color |= gray;
-			if (base_color & 2) color |= gray << 8;
-			if (base_color & 1) color |= gray << 16;
-			buf[pos + x] = color;
-		}
-	}
-}
-
-static void draw_vbars1()
-{
-	volatile uint32_t* buf = fb_base + (FB_SIZE*menu_bgn);
-	int width = fb_width - 2 * brd_x;
-
-	int sz = width / 7;
-	int stp = 0;
-
-	for (int y = brd_y; y < fb_height - brd_y; y++)
-	{
-		int pos = y * fb_width;
-		int old_base = 0;
-		int gray = 255;
-		for (int x = brd_x; x < fb_width - brd_x; x++)
-		{
-			int base_color = ((7 * (x - brd_x)) / width) + 1;
-			if (old_base != base_color)
-			{
-				stp = sz;
-				old_base = base_color;
-			}
-
-			gray = 255 * stp / sz;
-
-			uint32_t color = 0;
-			if (base_color & 4) color |= gray;
-			if (base_color & 2) color |= gray << 8;
-			if (base_color & 1) color |= gray << 16;
-			buf[pos + x] = color;
-
-			stp--;
-			if (stp < 0) stp = 0;
-		}
-	}
-}
-
-static void draw_vbars2()
-{
-	volatile uint32_t* buf = fb_base + (FB_SIZE*menu_bgn);
-	int height = fb_height - 2 * brd_y;
-	int width = fb_width - 2 * brd_x;
-
+	
 	for (int y = brd_y; y < fb_height - brd_y; y++)
 	{
 		int pos = y * fb_width;
 		for (int x = brd_x; x < fb_width - brd_x; x++)
 		{
-			int gray = ((256 * (y - brd_y)) / height);
-			int base_color = ((14 * (x - brd_x)) / width);
-			int inv = base_color & 1;
-			base_color >>= 1;
-			base_color = (inv ? base_color : 6 - base_color) + 1;
+			int red = ((x + y) % 64) < 32 ? 255 : 0;
 
-			if (inv) gray = 255 - gray;
-			uint32_t color = 0;
-			if (base_color & 4) color |= gray;
-			if (base_color & 2) color |= gray << 8;
-			if (base_color & 1) color |= gray << 16;
-			buf[pos + x] = color;
-		}
-	}
-}
-
-static void draw_spectrum()
-{
-	volatile uint32_t* buf = fb_base + (FB_SIZE*menu_bgn);
-	int height = fb_height - 2 * brd_y;
-	int width = fb_width - 2 * brd_x;
-
-	for (int y = brd_y; y < fb_height - brd_y; y++)
-	{
-		int pos = y * fb_width;
-		int blue = ((256 * (y - brd_y)) / height);
-		for (int x = brd_x; x < fb_width - brd_x; x++)
-		{
-			int green = ((256 * (x - brd_x)) / width) - blue / 2;
-			int red = 255 - green - blue / 2;
-			if (red < 0) red = 0;
-			if (green < 0) green = 0;
-
-			buf[pos + x] = (red << 16) | (green << 8) | blue;
+			buf[pos + x] = (red << 16);
 		}
 	}
 }
@@ -2743,84 +2598,6 @@ static void vs_wait()
 	close(fb);
 
 	printf("vs_wait(us): %llu\n", t2 - t1);
-}
-
-static char *get_file_fromdir(const char* dir, int num, int *count)
-{
-	static char name[256+32];
-	name[0] = 0;
-	if(count) *count = 0;
-	DIR *d = opendir(getFullPath(dir));
-	if (d)
-	{
-		int cnt = 0;
-		struct dirent *de = readdir(d);
-		while (de)
-		{
-			int len = strlen(de->d_name);
-			if (len > 4 && (!strcasecmp(de->d_name + len - 4, ".png") || !strcasecmp(de->d_name + len - 4, ".jpg")))
-			{
-				if (num == cnt) break;
-				cnt++;
-			}
-
-			de = readdir(d);
-		}
-
-		if (de)
-		{
-			snprintf(name, sizeof(name), "%s/%s", dir, de->d_name);
-		}
-		closedir(d);
-		if(count) *count = cnt;
-	}
-
-	return name;
-}
-
-static Imlib_Image load_bg()
-{
-	const char* fname = "menu.png";
-	if (!FileExists(fname))
-	{
-		fname = "menu.jpg";
-		if (!FileExists(fname)) fname = 0;
-	}
-
-	if (!fname)
-	{
-		char bgdir[32];
-
-		int alt = altcfg();
-		sprintf(bgdir, "wallpapers_alt_%d", alt);
-		if (alt == 1 && !PathIsDir(bgdir)) strcpy(bgdir, "wallpapers_alt");
-		if (alt <= 0 || !PathIsDir(bgdir)) strcpy(bgdir, "wallpapers");
-
-		if (PathIsDir(bgdir))
-		{
-			int rndfd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
-			if (rndfd >= 0)
-			{
-				uint32_t rnd;
-				read(rndfd, &rnd, sizeof(rnd));
-				close(rndfd);
-
-				int count = 0;
-				get_file_fromdir(bgdir, -1, &count);
-				if (count > 0) fname = get_file_fromdir(bgdir, rnd % count, &count);
-			}
-		}
-	}
-
-	if (fname)
-	{
-		Imlib_Load_Error error = IMLIB_LOAD_ERROR_NONE;
-		Imlib_Image img = imlib_load_image_with_error_return(getFullPath(fname), &error);
-		if (img) return img;
-		printf("Image %s loading error %d\n", fname, error);
-	}
-
-	return NULL;
 }
 
 static int bg_has_picture = 0;
@@ -2872,7 +2649,6 @@ void video_menu_bg(int n, int idle)
 
 		menu_bgn = (menu_bgn == 1) ? 2 : 1;
 
-		static Imlib_Image menubg = 0;
 		static Imlib_Image bg1 = 0, bg2 = 0;
 		if (!bg1) bg1 = imlib_create_image_using_data(fb_width, fb_height, (uint32_t*)(fb_base + (FB_SIZE * 1)));
 		if (!bg1) printf("Warning: bg1 is 0\n");
@@ -2901,55 +2677,7 @@ void video_menu_bg(int n, int idle)
 
 		if (idle < 3)
 		{
-			switch (n)
-			{
-			case 1:
-				if (!menubg) menubg = load_bg();
-				if (menubg)
-				{
-					imlib_context_set_image(menubg);
-					int src_w = imlib_image_get_width();
-					int src_h = imlib_image_get_height();
-					//printf("menubg: src_w=%d, src_h=%d\n", src_w, src_h);
-
-					if (*bg)
-					{
-						imlib_context_set_image(*bg);
-						imlib_blend_image_onto_image(menubg, 0,
-							0, 0,                           //int source_x, int source_y,
-							src_w, src_h,                   //int source_width, int source_height,
-							brd_x, brd_y,                   //int destination_x, int destination_y,
-							fb_width - (brd_x * 2), fb_height - (brd_y * 2) //int destination_width, int destination_height
-						);
-						bg_has_picture = 1;
-						break;
-					}
-					else
-					{
-						printf("*bg = 0!\n");
-					}
-				}
-				draw_checkers();
-				break;
-			case 2:
-				draw_hbars1();
-				break;
-			case 3:
-				draw_hbars2();
-				break;
-			case 4:
-				draw_vbars1();
-				break;
-			case 5:
-				draw_vbars2();
-				break;
-			case 6:
-				draw_spectrum();
-				break;
-			case 7:
-				draw_black();
-				break;
-			}
+			draw_warning();	
 		}
 
 		if (cfg.logo && logo && !idle)
@@ -3305,7 +3033,7 @@ static void video_calculate_cvt_int(int h_pixels, int v_lines, float refresh_rat
 	vmode->param.rb = reduced_blanking ? 1 : 0;
 	vmode->Fpix = pixel_freq;
 
-	if (h_pixels_rnd > 2048)
+	if (h_pixels_rnd > 4096)
 	{
 		vmode->param.pr = 1;
 		vmode->param.hact /= 2;
@@ -3332,7 +3060,7 @@ static void video_calculate_cvt_int(int h_pixels, int v_lines, float refresh_rat
 static void video_calculate_cvt(int h_pixels, int v_lines, float refresh_rate, int reduced_blanking, vmode_custom_t *vmode)
 {
 	// If the resolution it too wide and the core doesn't support pixel repetition then just do 1080p
-	if (h_pixels > 2048 && !supports_pr())
+	if (h_pixels > 4096 && !supports_pr())
 	{
 		printf("Pixel repetition not supported by core for %dx%d resolution, defaulting 1080p.\n", h_pixels, v_lines);
 		video_calculate_cvt(1920, 1080, refresh_rate, reduced_blanking, vmode);
@@ -3340,7 +3068,7 @@ static void video_calculate_cvt(int h_pixels, int v_lines, float refresh_rate, i
 	}
 
 	video_calculate_cvt_int(h_pixels, v_lines, refresh_rate, reduced_blanking == 1, vmode);
-	if (vmode->Fpix > 210.f && reduced_blanking == 2)
+	if (vmode->Fpix > 270.f && reduced_blanking == 2)
 	{
 		printf("Calculated pixel clock is too high. Trying CVT-RB timings.\n");
 		video_calculate_cvt_int(h_pixels, v_lines, refresh_rate, 1, vmode);
