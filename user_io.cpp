@@ -3802,22 +3802,22 @@ void user_io_kbd(uint16_t key, int press)
 	else
 	if (key == KEY_UP && (get_key_mod() & (LALT | RALT)))
 	{
-		user_io_set_ini(2);
+		if (press) user_io_set_ini(2);
 	}
 	else
 	if (key == KEY_DOWN && (get_key_mod() & (LALT | RALT)))
 	{
-		user_io_set_ini(3);
+		if (press) user_io_set_ini(3);
 	}
 	else
 	if (key == KEY_LEFT && (get_key_mod() & (LALT | RALT)))
 	{
-		user_io_set_ini(1);
+		if (press) user_io_set_ini(1);
 	}
 	else
 	if (key == KEY_RIGHT && (get_key_mod() & (LALT | RALT)))
 	{
-		user_io_set_ini(0);
+		if (press) user_io_set_ini(0);
 	}
 	else
 	{
