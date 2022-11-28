@@ -3800,6 +3800,26 @@ void user_io_kbd(uint16_t key, int press)
 		PrintDirectory();
 	}
 	else
+	if (key == KEY_UP && (get_key_mod() & (LALT | RALT)))
+	{
+		user_io_set_ini(2);
+	}
+	else
+	if (key == KEY_DOWN && (get_key_mod() & (LALT | RALT)))
+	{
+		user_io_set_ini(3);
+	}
+	else
+	if (key == KEY_LEFT && (get_key_mod() & (LALT | RALT)))
+	{
+		user_io_set_ini(1);
+	}
+	else
+	if (key == KEY_RIGHT && (get_key_mod() & (LALT | RALT)))
+	{
+		user_io_set_ini(0);
+	}
+	else
 	{
 		if (key)
 		{
