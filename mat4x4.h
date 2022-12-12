@@ -28,17 +28,6 @@ struct mat4x4
 		memset(comp, 0, 16*sizeof(float));
 	}
 
-	mat4x4(const uint16_t csc[12], float step = 2048.0)
-	: mat4x4()
-	{
-		setIdentity();
-
-		for ( size_t i = 0; i < 12; i++ )
-		{
-			comp[i] = csc[i] / step;
-		}
-	}
-
 	mat4x4(const float mat[16])
 	: mat4x4()
 	{
